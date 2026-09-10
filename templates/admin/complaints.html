@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Complaints & Grievances - Smart Mess{% endblock %}
+{% block page_title %}Student Complaints & Grievance Desk{% endblock %}
+{% block page_subtitle %}Review feedback on food taste, hygiene, mess timings, and publish admin resolutions{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+STATUS FILTER BAR - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-body" style="padding: 16px 20px;">
+    <form method="GET" action="{{ url_for('admin_complaints') }}" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 13px; font-weight: 700; color: #0f172a;">Filter by Status:</span>
+      
+      <a href="{{ url_for('admin_complaints') }}" class="btn btn-sm {% if not selected_status %}btn-primary{% else %}btn-secondary{% endif %}">
+        All ({{ complaints | length }})
+      </a>
+      <a href="{{ url_for('admin_complaints', status='Pending') }}" class="btn btn-sm {% if selected_status == 'Pending' %}btn-primary{% else %}btn-secondary{% endif %}">
+        ⏳ Pending
+      </a>
+      <a href="{{ url_for('admin_complaints', status='In Progress') }}" class="btn btn-sm {% if selected_status == 'In Progress' %}btn-primary{% else %}btn-secondary{% endif %}">
+        🔄 In Progress
+      </a>
+      <a href="{{ url_for('admin_complaints', status='Resolved') }}" class="btn btn-sm {% if selected_status == 'Resolved' %}btn-primary{% else %}btn-secondary{% endif %}">
+        ✅ Resolved
+      </a>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+STATUS FILTER BAR - END
+==========================================
+-->
+
+
+<!--
+==========================================
+COMPLAINTS LIST - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>💬</span>
+      <h3>Registered Complaints ({{ complaints | length }})</h3>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Ticket ID</th>
+            <th>Date</th>
+            <th>Student</th>
+            <th>Category</th>
+            <th>Title & Grievance</th>
+            <th>Status</th>
+            <th>Admin Response</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in complaints %}
+            <tr>
+              <td>#TKT-{{ c['id'] }}</td>
+              <td>{{ c['created_at'] }}</td>
+              <td>
+                <strong>{{ c['full_name'] }}</strong>
+                <div style="font-size: 11px; color: var(--text-muted);">{{ c['student_id'] }} ({{ c['roll_number'] }})</div>
+              </td>
+              <td><span class="badge badge-normal">{{ c['category'] }}</span></td>
+              <td style="max-width: 280px;">
+                <div style="font-weight: 700; color: #0f172a;">{{ c['title'] }}</div>
+                <div style="font-size: 12px; color: #475569; margin-top: 2px;">{{ c['description'] }}</div>
+              </td>
+              <td>
+                {% if c['status'] == 'Pending' %}
+                  <span class="badge badge-pending">⏳ Pending</span>
+                {% elif c['status'] == 'In Progress' %}
+                  <span class="badge badge-high">🔄 In Progress</span>
+                {% else %}
+                  <span class="badge badge-paid">✅ Resolved</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 12px; color: #334155; max-width: 220px;">
+                {% if c['admin_response'] %}
+                  <div style="background: #f1f5f9; padding: 6px 10px; border-radius: var(--radius-sm);">
+                    {{ c['admin_response'] }}
+                  </div>
+                {% else %}
+                  <span style="color: var(--text-light); font-style: italic;">No response recorded yet</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <button 
+                  class="btn btn-primary btn-sm"
+                  onclick="openResponseModal('{{ c['id'] }}', '{{ c['full_name'] }}', '{{ c['status'] }}', '{{ c['admin_response'] or '' }}')"
+                >
+                  ✍️ Respond
+                </button>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                No student complaints found in this category.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+COMPLAINTS LIST - END
+==========================================
+-->
+
+
+<!--
+==========================================
+RESOLVE & RESPOND MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="responseModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>✍️ Respond to Grievance: <span id="respStudentName"></span></h3>
+      <button class="modal-close" onclick="closeModal('responseModal')">✕</button>
+    </div>
+    
+    <form id="responseForm" method="POST">
+      <div class="modal-body">
+        
+        <div class="form-group">
+          <label class="form-label">Update Status <span class="required">*</span></label>
+          <select name="status" id="resp_status" class="form-control" required>
+            <option value="Pending">Pending Review</option>
+            <option value="In Progress">In Progress (Kitchen Notified)</option>
+            <option value="Resolved">Resolved & Closed</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Official Response / Action Taken <span class="required">*</span></label>
+          <textarea 
+            name="admin_response" 
+            id="resp_admin_response" 
+            class="form-control" 
+            rows="4" 
+            placeholder="Describe action taken, kitchen supervisor feedback, or resolution notes for the student..." 
+            required
+          ></textarea>
+        </div>
+
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('responseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save & Notify Student</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+RESOLVE & RESPOND MODAL - END
+==========================================
+-->
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function openResponseModal(id, studentName, status, currentResponse) {
+    document.getElementById("respStudentName").innerText = studentName;
+    document.getElementById("resp_status").value = status;
+    document.getElementById("resp_admin_response").value = currentResponse;
+    document.getElementById("responseForm").action = `/admin/complaints/${id}/status`;
+    openModal("responseModal");
+  }
+</script>
+{% endblock %}

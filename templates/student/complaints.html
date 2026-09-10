@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Complaints & Feedback - Student Portal{% endblock %}
+{% block page_title %}Mess Complaints & Feedback Desk{% endblock %}
+{% block page_subtitle %}Submit grievances regarding food taste, cleanliness, or timings, and track administration responses{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  
+  <!--
+  ==========================================
+  SUBMIT COMPLAINT FORM - START
+  ==========================================
+  -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span>✍️</span>
+        <h3>Submit Feedback or Grievance</h3>
+      </div>
+    </div>
+    
+    <form action="{{ url_for('student_add_complaint') }}" method="POST">
+      <div class="card-body">
+        
+        <div class="form-group">
+          <label class="form-label">Feedback Category <span class="required">*</span></label>
+          <select name="category" class="form-control" required>
+            <option value="Food Quality">Food Quality & Taste</option>
+            <option value="Cleanliness">Hygiene & Dining Hall Cleanliness</option>
+            <option value="Mess Timings">Mess Timings & Delays</option>
+            <option value="Staff Behavior">Mess Staff & Counter Behavior</option>
+            <option value="Food Quantity">Food Quantity & Refills</option>
+            <option value="Other">Other Suggestions</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subject / Title <span class="required">*</span></label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Cold chapatis during dinner service" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Detailed Description <span class="required">*</span></label>
+          <textarea 
+            name="description" 
+            class="form-control" 
+            rows="5" 
+            placeholder="Please describe the issue clearly with date/time of occurrence..." 
+            required
+          ></textarea>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Your submission is directly forwarded to the Hostel Warden and Mess Committee. Responses will be posted to this page.
+        </p>
+
+      </div>
+
+      <div class="card-footer">
+        <button type="submit" class="btn btn-primary btn-block">
+          <span>📨</span> Submit Grievance Ticket
+        </button>
+      </div>
+    </form>
+  </div>
+  <!--
+  ==========================================
+  SUBMIT COMPLAINT FORM - END
+  ==========================================
+  -->
+
+
+  <!--
+  ==========================================
+  MY COMPLAINTS & RESPONSES - START
+  ==========================================
+  -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span>💬</span>
+        <h3>My Submitted Tickets ({{ complaints | length }})</h3>
+      </div>
+    </div>
+
+    <div class="card-body" style="max-height: 520px; overflow-y: auto;">
+      {% for c in complaints %}
+        <div class="notice-item" style="border-left: 4px solid {% if c['status'] == 'Resolved' %}#10b981{% elif c['status'] == 'In Progress' %}#3b82f6{% else %}#f59e0b{% endif %};">
+          
+          <div class="notice-header">
+            <div class="notice-title">#TKT-{{ c['id'] }}: {{ c['title'] }}</div>
+            <div>
+              {% if c['status'] == 'Pending' %}
+                <span class="badge badge-pending">⏳ Pending Review</span>
+              {% elif c['status'] == 'In Progress' %}
+                <span class="badge badge-high">🔄 In Progress</span>
+              {% else %}
+                <span class="badge badge-paid">✅ Resolved</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px;">
+            <strong>Category:</strong> {{ c['category'] }} &nbsp;|&nbsp; <strong>Date:</strong> {{ c['created_at'] }}
+          </div>
+
+          <p style="font-size: 13px; color: #334155;">{{ c['description'] }}</p>
+
+          <!-- Admin Response Section -->
+          {% if c['admin_response'] %}
+            <div style="margin-top: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-sm); padding: 10px 14px;">
+              <div style="font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase; margin-bottom: 2px;">
+                🛡️ Mess Warden / Admin Response:
+              </div>
+              <div style="font-size: 13px; color: #1e3a8a;">
+                {{ c['admin_response'] }}
+              </div>
+            </div>
+          {% else %}
+            <div style="margin-top: 8px; font-size: 12px; color: var(--text-light); font-style: italic;">
+              Awaiting review from mess supervisor.
+            </div>
+          {% endif %}
+
+        </div>
+      {% else %}
+        <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+          You have not submitted any complaints or feedback yet.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <!--
+  ==========================================
+  MY COMPLAINTS & RESPONSES - END
+  ==========================================
+  -->
+
+</div>
+{% endblock %}

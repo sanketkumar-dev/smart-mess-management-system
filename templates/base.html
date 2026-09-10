@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Smart Mess Management System{% endblock %}</title>
+  <meta name="description" content="A real-world college and hostel mess management system with facial recognition attendance, menu scheduling, notice board, and analytics.">
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <!--
+  ==========================================
+  APP CONTAINER & SIDEBAR - START
+  ==========================================
+  -->
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="appSidebar">
+      <!-- Sidebar Header / Brand -->
+      <div class="sidebar-header">
+        <div class="sidebar-logo-icon">S</div>
+        <div class="sidebar-brand">
+          <h1>SMART MESS</h1>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <ul class="sidebar-menu">
+        {% if user_role == 'admin' %}
+          <!-- ================= ADMIN NAVIGATION ================= -->
+          <li class="menu-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+            <a href="{{ url_for('admin_dashboard') }}" class="menu-link">
+              <i>📊</i> <span>Dashboard</span>
+            </a>
+          </li>
+
+          <li class="menu-item {% if request.endpoint == 'admin_attendance' %}active{% endif %}">
+            <a href="{{ url_for('admin_attendance') }}" class="menu-link">
+              <i>📸</i> <span>Take Attendance</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'admin_attendance_records' %}active{% endif %}">
+            <a href="{{ url_for('admin_attendance_records') }}" class="menu-link">
+              <i>📋</i> <span>Attendance Logs</span>
+            </a>
+          </li>
+
+          <li class="menu-item {% if request.endpoint == 'admin_students' %}active{% endif %}">
+            <a href="{{ url_for('admin_students') }}" class="menu-link">
+              <i>👥</i> <span>Students Directory</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'admin_payments' %}active{% endif %}">
+            <a href="{{ url_for('admin_payments') }}" class="menu-link">
+              <i>💳</i> <span>Fee Payments</span>
+            </a>
+          </li>
+
+          <li class="menu-item {% if request.endpoint == 'admin_menu' %}active{% endif %}">
+            <a href="{{ url_for('admin_menu') }}" class="menu-link">
+              <i>🍽️</i> <span>Menu Management</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'admin_notices' %}active{% endif %}">
+            <a href="{{ url_for('admin_notices') }}" class="menu-link">
+              <i>📢</i> <span>Important Notices</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'admin_complaints' %}active{% endif %}">
+            <a href="{{ url_for('admin_complaints') }}" class="menu-link">
+              <i>💬</i> <span>Student Complaints</span>
+            </a>
+          </li>
+        {% elif user_role == 'student' %}
+          <!-- ================= STUDENT NAVIGATION ================= -->
+          <li class="menu-item {% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+            <a href="{{ url_for('student_dashboard') }}" class="menu-link">
+              <i>🏠</i> <span>My Dashboard</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'student_complaints' %}active{% endif %}">
+            <a href="{{ url_for('student_complaints') }}" class="menu-link">
+              <i>✍️</i> <span>Complaints & Feedback</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+
+      <!-- Sidebar Footer / User Profile Badge -->
+      <div class="sidebar-footer">
+        <div class="user-badge">
+          <div class="user-avatar">
+            {{ (user_name[0] if user_name else 'U') | upper }}
+          </div>
+          <div class="user-info">
+            <div class="user-name">{{ user_name or 'User' }}</div>
+            <div class="user-role-label">
+              {% if user_role == 'admin' %}
+                <span class="role-pill-admin">ADMIN</span>
+              {% else %}
+                <span class="role-pill-student">{{ student_id }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+      
+      <!-- Top Navigation Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open navigation" aria-controls="appSidebar" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="topbar-title">
+            <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+            <p>{% block page_subtitle %}Welcome to Smart Mess Portal{% endblock %}</p>
+          </div>
+        </div>
+        
+        <div class="topbar-right">
+          <div class="date-indicator">
+            <span>📅</span>
+            <span>{{ current_day }}, {{ current_date }}</span>
+          </div>
+          
+          <a href="{{ url_for('logout') }}" class="logout-btn" title="Sign Out">
+            <span>🚪</span> <span>Sign Out</span>
+          </a>
+        </div>
+      </header>
+
+      <!-- Main Dynamic Content Area -->
+      <main class="content-area">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  </div>
+  <!--
+  ==========================================
+  APP CONTAINER & SIDEBAR - END
+  ==========================================
+  -->
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Flash Message Script -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          {% for category, message in messages %}
+            showToast("{{ message }}", "{{ category }}");
+          {% endfor %}
+        });
+      </script>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Core JavaScript Libraries -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/camera.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

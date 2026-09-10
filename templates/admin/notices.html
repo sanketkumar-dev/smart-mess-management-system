@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Notice Board - Smart Mess{% endblock %}
+{% block page_title %}Hostel Mess Notice Board{% endblock %}
+{% block page_subtitle %}Broadcast timing revisions, holiday schedules, special feasts, and maintenance announcements{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+NOTICE ACTION BAR - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-body" style="padding: 16px 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+      <div>
+        <h4 style="font-size: 15px; font-weight: 800; color: #0f172a;">Active Notice Board</h4>
+        <p style="font-size: 12px; color: var(--text-muted);">Published announcements appear immediately on student dashboards</p>
+      </div>
+
+      <button class="btn btn-primary" onclick="openModal('createNoticeModal')">
+        <span>📢</span> <span>Publish New Notice</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+NOTICE ACTION BAR - END
+==========================================
+-->
+
+
+<!--
+==========================================
+NOTICES LIST - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>📢</span>
+      <h3>Published Notices ({{ notices | length }})</h3>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% for n in notices %}
+      <div class="notice-item priority-{{ n['priority'] | lower }}">
+        <div class="notice-header">
+          <div class="notice-title">{{ n['title'] }}</div>
+          <span class="badge badge-{{ n['priority'] | lower }}">{{ n['priority'] }} Priority</span>
+        </div>
+        
+        <p style="font-size: 13.5px; color: #334155; margin-top: 6px; white-space: pre-line;">{{ n['content'] }}</p>
+        
+        <div class="notice-meta">
+          <span>📅 Posted: {{ n['created_at'] }}</span>
+          <span>👤 Author: {{ n['created_by'] }}</span>
+          
+          <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button 
+              class="btn btn-secondary btn-sm" 
+              onclick="openEditNoticeModal('{{ n['id'] }}', '{{ n['title'] | replace('\'', '\\\'') }}', '{{ n['priority'] }}', '{{ n['content'] | replace('\'', '\\\'') | replace('\n', '\\n') }}')"
+            >
+              ✏️ Edit
+            </button>
+            <button 
+              class="btn btn-danger btn-sm" 
+              onclick="confirmDeleteNotice('{{ n['id'] }}', '{{ n['title'] | replace('\'', '\\\'') }}')"
+            >
+              🗑️ Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+        No notices published yet. Click "Publish New Notice" to make your first announcement.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+<!--
+==========================================
+NOTICES LIST - END
+==========================================
+-->
+
+
+<!--
+==========================================
+CREATE NOTICE MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="createNoticeModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>📢 Publish New Notice</h3>
+      <button class="modal-close" onclick="closeModal('createNoticeModal')">✕</button>
+    </div>
+    
+    <form action="{{ url_for('admin_notices') }}" method="POST">
+      <input type="hidden" name="action" value="create">
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Notice Title <span class="required">*</span></label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Special Sunday Dinner Feast Timing" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Priority Level</label>
+          <select name="priority" class="form-control">
+            <option value="Normal" selected>Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent (Pulsating Highlight)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notice Content & Instructions <span class="required">*</span></label>
+          <textarea name="content" class="form-control" rows="4" placeholder="Enter complete notice details..." required></textarea>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('createNoticeModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Publish Announcement</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+CREATE NOTICE MODAL - END
+==========================================
+-->
+
+
+<!--
+==========================================
+EDIT NOTICE MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="editNoticeModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>✏️ Edit Notice</h3>
+      <button class="modal-close" onclick="closeModal('editNoticeModal')">✕</button>
+    </div>
+    
+    <form action="{{ url_for('admin_notices') }}" method="POST">
+      <input type="hidden" name="action" value="edit">
+      <input type="hidden" name="notice_id" id="edit_notice_id">
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Notice Title <span class="required">*</span></label>
+          <input type="text" name="title" id="edit_notice_title" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Priority Level</label>
+          <select name="priority" id="edit_notice_priority" class="form-control">
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notice Content <span class="required">*</span></label>
+          <textarea name="content" id="edit_notice_content" class="form-control" rows="4" required></textarea>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editNoticeModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+EDIT NOTICE MODAL - END
+==========================================
+-->
+
+
+<!-- Delete Notice Form -->
+<form id="deleteNoticeForm" method="POST" style="display: none;"></form>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function openEditNoticeModal(id, title, priority, content) {
+    document.getElementById("edit_notice_id").value = id;
+    document.getElementById("edit_notice_title").value = title;
+    document.getElementById("edit_notice_priority").value = priority;
+    document.getElementById("edit_notice_content").value = content;
+    openModal("editNoticeModal");
+  }
+
+  function confirmDeleteNotice(id, title) {
+    if (confirm(`Are you sure you want to delete notice "${title}"?`)) {
+      const form = document.getElementById("deleteNoticeForm");
+      form.action = `/admin/notices/${id}/delete`;
+      form.submit();
+    }
+  }
+</script>
+{% endblock %}

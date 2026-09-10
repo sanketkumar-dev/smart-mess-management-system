@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Smart Mess Management System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+
+  <div class="login-card">
+    
+    <!-- Login Brand Header -->
+    <div class="login-header">
+      <div class="login-logo">S</div>
+      <h1>SMART MESS</h1>
+      <p>Institutional Mess Management Terminal</p>
+    </div>
+
+    <!-- Dual Role Tabs -->
+    <div class="login-tabs">
+      <div class="login-tab active" id="tabAdmin" onclick="switchLoginRole('admin')">
+        🛡️ Admin Portal
+      </div>
+      <div class="login-tab" id="tabStudent" onclick="switchLoginRole('student')">
+        🎓 Student Login
+      </div>
+    </div>
+
+    <!-- Login Form Body -->
+    <div class="login-body-content">
+      
+      <form action="{{ url_for('login') }}" method="POST" id="loginForm">
+        <input type="hidden" name="login_type" id="login_type" value="admin">
+
+        <!-- Username / Student ID Field -->
+        <div class="form-group">
+          <label class="form-label" id="lblUsername">Admin Username or Email</label>
+          <input 
+            type="text" 
+            name="username_or_id" 
+            id="username_or_id" 
+            class="form-control" 
+            placeholder="Enter your username or email" 
+            required
+            autocomplete="username"
+          >
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input 
+            type="password" 
+            name="password" 
+            id="password" 
+            class="form-control" 
+            placeholder="Enter your password" 
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnSubmit">
+          Sign In to Admin Portal
+        </button>
+      </form>
+
+    </div>
+
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script>
+    function switchLoginRole(role) {
+      const tabAdmin = document.getElementById("tabAdmin");
+      const tabStudent = document.getElementById("tabStudent");
+      const loginType = document.getElementById("login_type");
+      const lblUser = document.getElementById("lblUsername");
+      const userInput = document.getElementById("username_or_id");
+      const btnSubmit = document.getElementById("btnSubmit");
+
+      if (role === 'admin') {
+        tabAdmin.classList.add("active");
+        tabStudent.classList.remove("active");
+        loginType.value = "admin";
+        lblUser.innerText = "Admin Username or Email";
+        userInput.placeholder = "Enter your username or email";
+        btnSubmit.innerText = "Sign In to Admin Portal";
+        btnSubmit.className = "btn btn-primary btn-block btn-lg";
+      } else {
+        tabStudent.classList.add("active");
+        tabAdmin.classList.remove("active");
+        loginType.value = "student";
+        lblUser.innerText = "Unique Student ID or Roll No";
+        userInput.placeholder = "Enter your student ID or roll number";
+        btnSubmit.innerText = "Sign In to Student Portal";
+        btnSubmit.className = "btn btn-success btn-block btn-lg";
+      }
+    }
+
+  </script>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          {% for category, message in messages %}
+            showToast("{{ message }}", "{{ category }}");
+          {% endfor %}
+        });
+      </script>
+    {% endif %}
+  {% endwith %}
+
+</body>
+</html>

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Face Recognition Attendance - Smart Mess{% endblock %}
+{% block page_title %}Face Recognition Attendance Scanner{% endblock %}
+{% block page_subtitle %}Instant contactless facial verification with automated duplicate attendance prevention{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+MEAL SELECTOR BAR - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-body" style="padding: 18px 24px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+      <div>
+        <h4 style="font-size: 15px; font-weight: 800; color: #0f172a;">Select Current Meal Session:</h4>
+        <p style="font-size: 12px; color: var(--text-muted);">Attendance scans will be logged under this meal slot</p>
+      </div>
+
+      <div class="meal-selector-group" style="margin-bottom: 0; min-width: 380px;">
+        <label class="meal-radio-label">
+          <input type="radio" name="meal_type" value="Breakfast" {% if current_meal == 'Breakfast' %}checked{% endif %}>
+          <div class="meal-chip"><span>🍳</span> Breakfast</div>
+        </label>
+        <label class="meal-radio-label">
+          <input type="radio" name="meal_type" value="Lunch" {% if current_meal == 'Lunch' %}checked{% endif %}>
+          <div class="meal-chip"><span>🍛</span> Lunch</div>
+        </label>
+        <label class="meal-radio-label">
+          <input type="radio" name="meal_type" value="Dinner" {% if current_meal == 'Dinner' %}checked{% endif %}>
+          <div class="meal-chip"><span>🍲</span> Dinner</div>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+MEAL SELECTOR BAR - END
+==========================================
+-->
+
+
+<div class="grid-2">
+  
+  <!--
+  ==========================================
+  CAMERA SCANNER INTERFACE - START
+  ==========================================
+  -->
+  <div class="camera-container">
+    
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 540px; margin-bottom: 14px;">
+      <div style="font-size: 14px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">📷</span> Live Mess Terminal
+      </div>
+      <div style="font-size: 11px; color: #94a3b8; background: #1e293b; padding: 4px 10px; border-radius: var(--radius-full);">
+        LBPH Face Matcher v1.0
+      </div>
+    </div>
+
+    <!-- Video Viewport Frame -->
+    <div class="video-wrapper">
+      <video id="attendVideo" autoplay playsinline muted></video>
+      <canvas id="attendCanvas"></canvas>
+      
+      <!-- Viewfinder Overlay & Laser Scan Line -->
+      <div class="face-viewfinder">
+        <div class="scan-line"></div>
+      </div>
+    </div>
+
+    <!-- Camera Control Buttons -->
+    <div class="camera-controls">
+      <button type="button" class="btn btn-primary" id="btnStartAttendance">
+        <span>📹</span> <span>Start Camera</span>
+      </button>
+
+      <button type="button" class="btn btn-success" id="btnScanOnce" style="display: none;">
+        <span>📸</span> <span>Capture & Scan</span>
+      </button>
+
+      <button type="button" class="btn btn-secondary" id="btnAutoScan" style="display: none;">
+        <span>⚡</span> <span>Auto-Scan Mode</span>
+      </button>
+
+      <button type="button" class="btn btn-danger" id="btnStopAttendance" style="display: none;">
+        <span>⏹️</span> <span>Stop Camera</span>
+      </button>
+    </div>
+
+    <!-- Live Scanner Status Banner -->
+    <div class="camera-status-banner status-ready" id="scannerStatusBanner">
+      Camera inactive. Click 'Start Camera' to begin student attendance.
+    </div>
+
+  </div>
+  <!--
+  ==========================================
+  CAMERA SCANNER INTERFACE - END
+  ==========================================
+  -->
+
+
+  <!--
+  ==========================================
+  LIVE SCAN VERIFICATION & LOGS - START
+  ==========================================
+  -->
+  <div>
+    
+    <!-- Dynamic Real-Time Scan Card Container -->
+    <div id="liveScanResult" style="margin-bottom: 20px;">
+      <div class="scan-result-card" style="background-color: #f8fafc; border-style: dashed;">
+        <div style="font-size: 36px; opacity: 0.5;">👤</div>
+        <div>
+          <h4 style="font-size: 15px; font-weight: 700; color: var(--text-muted);">Awaiting Face Scan...</h4>
+          <p style="font-size: 12px; color: var(--text-light); margin-top: 2px;">
+            When a student faces the camera, their verified profile, roll number, and attendance status will appear here.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's Attendance Scans Table -->
+    <div class="card" style="margin-bottom: 0;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>📋</span>
+          <h3>Today's Scanned Log ({{ today_records | length }})</h3>
+        </div>
+        <a href="{{ url_for('admin_attendance_records') }}" class="btn btn-secondary btn-sm">Full History</a>
+      </div>
+      <div class="card-body" style="padding: 0; max-height: 380px; overflow-y: auto;">
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Roll No</th>
+                <th>Meal</th>
+                <th>Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="todayScansTableBody">
+              {% for rec in today_records %}
+                <tr>
+                  <td><strong style="color: var(--primary);">{{ rec['student_id'] }}</strong></td>
+                  <td>{{ rec['full_name'] }}</td>
+                  <td>{{ rec['roll_number'] }}</td>
+                  <td><span class="badge badge-{{ rec['meal'] | lower }}">{{ rec['meal'] }}</span></td>
+                  <td>{{ rec['time'] }}</td>
+                  <td><span class="badge badge-paid">Present</span></td>
+                </tr>
+              {% else %}
+                <tr class="empty-scans-row">
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    No attendance records logged today yet.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!--
+  ==========================================
+  LIVE SCAN VERIFICATION & LOGS - END
+  ==========================================
+  -->
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    initAttendanceScanner();
+  });
+</script>
+{% endblock %}

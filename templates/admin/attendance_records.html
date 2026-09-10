@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Records - Smart Mess{% endblock %}
+{% block page_title %}Mess Attendance Logs & History{% endblock %}
+{% block page_subtitle %}Comprehensive audit trail of all verified meal sessions with export and manual override features{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+FILTER & ACTION TOOLBAR - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-body" style="padding: 16px 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      
+      <!-- Filter Form -->
+      <form method="GET" action="{{ url_for('admin_attendance_records') }}" style="display: flex; gap: 12px; flex-wrap: wrap; flex: 1;">
+        <input 
+          type="date" 
+          name="date" 
+          class="form-control" 
+          style="max-width: 170px;" 
+          value="{{ selected_date }}"
+        >
+
+        <select name="meal" class="form-control" style="max-width: 160px;">
+          <option value="">All Meals</option>
+          <option value="Breakfast" {% if selected_meal == 'Breakfast' %}selected{% endif %}>Breakfast</option>
+          <option value="Lunch" {% if selected_meal == 'Lunch' %}selected{% endif %}>Lunch</option>
+          <option value="Dinner" {% if selected_meal == 'Dinner' %}selected{% endif %}>Dinner</option>
+        </select>
+
+        <input 
+          type="text" 
+          name="search" 
+          class="form-control" 
+          style="max-width: 240px;" 
+          placeholder="🔍 Student name, ID, roll..." 
+          value="{{ search }}"
+        >
+
+        <button type="submit" class="btn btn-secondary btn-sm">Apply Filter</button>
+        {% if selected_date or selected_meal or search %}
+          <a href="{{ url_for('admin_attendance_records') }}" class="btn btn-secondary btn-sm" style="color: var(--danger);">Reset</a>
+        {% endif %}
+      </form>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('admin_export_attendance', export_format='xlsx', date=selected_date, meal=selected_meal, student=search_student) }}" class="btn btn-secondary btn-sm">📊 Download Excel</a>
+        <a href="{{ url_for('admin_export_attendance', export_format='pdf', date=selected_date, meal=selected_meal, student=search_student) }}" class="btn btn-secondary btn-sm">📄 Download PDF</a>
+        <button class="btn btn-primary btn-sm" onclick="openModal('manualAttendanceModal')">
+          <span>✍️</span> <span>Mark Manual Attendance</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+FILTER & ACTION TOOLBAR - END
+==========================================
+-->
+
+
+<!--
+==========================================
+ATTENDANCE AUDIT LOG TABLE - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>📋</span>
+      <h3>Verified Meal Attendance Logs ({{ records | length }})</h3>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table" id="attendanceLogsTable">
+        <thead>
+          <tr>
+            <th>Log ID</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Meal Slot</th>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Roll Number</th>
+            <th>Branch</th>
+            <th>Verification Mode</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+            <tr>
+              <td>#{{ r['id'] }}</td>
+              <td><strong>{{ r['date'] }}</strong></td>
+              <td>{{ r['time'] }}</td>
+              <td><span class="badge badge-{{ r['meal'] | lower }}">{{ r['meal'] }}</span></td>
+              <td><strong style="color: var(--primary);">{{ r['student_id'] }}</strong></td>
+              <td>{{ r['full_name'] }}</td>
+              <td>{{ r['roll_number'] }}</td>
+              <td>{{ r['branch'] }}</td>
+              <td>
+                {% if r['marked_by'] == 'Face Recognition' %}
+                  <span class="badge badge-paid">📸 Face Scan</span>
+                {% else %}
+                  <span class="badge badge-normal">✍️ Manual ({{ r['marked_by'] }})</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <button 
+                  class="btn btn-danger btn-sm" 
+                  title="Remove attendance entry"
+                  onclick="confirmDeleteAttendance('{{ r['id'] }}', '{{ r['full_name'] }}', '{{ r['meal'] }}', '{{ r['date'] }}')"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 36px;">
+                No attendance logs found matching the selected filter criteria.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+ATTENDANCE AUDIT LOG TABLE - END
+==========================================
+-->
+
+
+<!--
+==========================================
+MANUAL ATTENDANCE MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="manualAttendanceModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>✍️ Mark Manual Attendance</h3>
+      <button class="modal-close" onclick="closeModal('manualAttendanceModal')">✕</button>
+    </div>
+    
+    <form action="{{ url_for('admin_manual_attendance') }}" method="POST">
+      <div class="modal-body">
+        
+        <div class="form-group">
+          <label class="form-label">Select Student <span class="required">*</span></label>
+          <select name="student_id" class="form-control" required>
+            <option value="">-- Choose Registered Student --</option>
+            {% for s in (students_list or all_students or []) %}
+              <option value="{{ s['student_id'] }}">
+                {{ s['student_id'] }} - {{ s['full_name'] }} ({{ s['roll_number'] }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date <span class="required">*</span></label>
+            <input type="date" name="date" class="form-control" value="{{ current_date }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Meal Slot <span class="required">*</span></label>
+            <select name="meal" class="form-control" required>
+              <option value="Breakfast">Breakfast</option>
+              <option value="Lunch" selected>Lunch</option>
+              <option value="Dinner">Dinner</option>
+            </select>
+          </div>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Note: The system automatically verifies that the student has not already been marked for this meal on the selected date.
+        </p>
+
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('manualAttendanceModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Mark Attendance</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+MANUAL ATTENDANCE MODAL - END
+==========================================
+-->
+
+
+<!-- Delete Record Form -->
+<form id="deleteAttendanceForm" method="POST" style="display: none;"></form>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function confirmDeleteAttendance(id, name, meal, date) {
+    if (confirm(`Remove attendance log for ${name} (${meal} on ${date})?`)) {
+      const form = document.getElementById("deleteAttendanceForm");
+      form.action = `/admin/attendance/${id}/delete`;
+      form.submit();
+    }
+  }
+</script>
+{% endblock %}

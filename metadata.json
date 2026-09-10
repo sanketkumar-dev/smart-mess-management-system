@@ -1,0 +1,6 @@
+{
+  "name": "Smart Mess Management System",
+  "description": "A comprehensive college and hostel mess management system featuring real-time face recognition attendance, meal tracking, daily menu scheduling, complaint management, and reporting.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

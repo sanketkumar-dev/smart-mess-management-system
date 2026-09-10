@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Management - Smart Mess{% endblock %}
+{% block page_title %}Menu Management{% endblock %}
+{% block page_subtitle %}Update the weekly breakfast, lunch, and dinner schedule{% endblock %}
+
+{% block content %}
+<div class="menu-management-intro">
+  <div>
+    <span class="eyebrow">Weekly schedule</span>
+    <h3>Mess Menu</h3>
+    <p>Edit one meal at a time. Changes are saved immediately and appear on both dashboards.</p>
+  </div>
+  <div class="menu-status-legend" aria-label="Menu statuses">
+    <span class="menu-status status-available">Available</span>
+    <span class="menu-status status-special">Special Menu</span>
+    <span class="menu-status status-unavailable">Not Available</span>
+  </div>
+</div>
+
+<div class="menu-management-grid">
+  {% for day in days %}
+    <section class="menu-management-day">
+      <div class="menu-management-day-header">
+        <span class="weekly-day-dot"></span>
+        <h3>{{ day }}</h3>
+      </div>
+
+      {% for meal_type in meal_types %}
+        {% set meal = weekly_menu[day].get(meal_type) %}
+        <form method="POST" class="menu-edit-form">
+          <input type="hidden" name="day_of_week" value="{{ day }}">
+          <input type="hidden" name="meal_type" value="{{ meal_type }}">
+          <div class="menu-edit-heading">
+            <span class="weekly-meal-icon weekly-meal-{{ meal_type | lower }}-icon">{% if meal_type == 'Breakfast' %}B{% elif meal_type == 'Lunch' %}L{% else %}D{% endif %}</span>
+            <div>
+              <strong>{{ meal_type }}</strong>
+              <span>{{ meal.availability_status if meal else 'Available' }}</span>
+            </div>
+          </div>
+          <label class="form-label" for="{{ day | lower }}-{{ meal_type | lower }}-items">Menu items</label>
+          <textarea id="{{ day | lower }}-{{ meal_type | lower }}-items" name="items" class="form-control menu-items-input" rows="2" placeholder="Enter menu items">{{ meal.items if meal else '' }}</textarea>
+          <label class="form-label" for="{{ day | lower }}-{{ meal_type | lower }}-notes">Notes</label>
+          <input id="{{ day | lower }}-{{ meal_type | lower }}-notes" type="text" name="special_notes" class="form-control" value="{{ meal.special_notes if meal else '' }}" placeholder="Optional note">
+          <div class="menu-edit-actions">
+            <select name="availability_status" class="form-control" aria-label="{{ day }} {{ meal_type }} status">
+              {% for status in statuses %}
+                <option value="{{ status }}" {% if (meal.availability_status if meal else 'Available') == status %}selected{% endif %}>{{ status }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          </div>
+        </form>
+      {% endfor %}
+    </section>
+  {% endfor %}
+</div>
+{% endblock %}

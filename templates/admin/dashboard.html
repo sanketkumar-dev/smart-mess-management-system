@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Smart Mess{% endblock %}
+{% block page_title %}Operational Dashboard{% endblock %}
+{% block page_subtitle %}A simple overview of today's mess operations{% endblock %}
+
+{% block content %}
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Registered Students</h3>
+      <div class="metric-number">{{ total_students }}</div>
+      <div class="metric-sub">Active mess members</div>
+    </div>
+    <div class="metric-icon icon-blue">👥</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Breakfast</h3>
+      <div class="metric-number">{{ today_breakfast }}</div>
+      <div class="metric-sub">7:00 AM - 11:00 AM</div>
+    </div>
+    <div class="metric-icon icon-emerald">🍳</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Lunch</h3>
+      <div class="metric-number">{{ today_lunch }}</div>
+      <div class="metric-sub">12:00 PM - 4:00 PM</div>
+    </div>
+    <div class="metric-icon icon-amber">🍛</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Dinner</h3>
+      <div class="metric-number">{{ today_dinner }}</div>
+      <div class="metric-sub">7:00 PM - 10:00 PM</div>
+    </div>
+    <div class="metric-icon icon-purple">🍲</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Total Meals Today</h3>
+      <div class="metric-number">{{ total_meals_today }}</div>
+      <div class="metric-sub">Cumulative scans</div>
+    </div>
+    <div class="metric-icon icon-indigo">🍽️</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Paid Students</h3>
+      <div class="metric-number" style="color: var(--success);">{{ paid_students }}</div>
+      <div class="metric-sub">Fee dues cleared</div>
+    </div>
+    <div class="metric-icon icon-emerald">✅</div>
+  </div>
+</div>
+
+<div class="dashboard-menu card">
+    <div class="card-header">
+      <div class="card-title">
+        <span>🍽️</span>
+        <h3>Mess Menu</h3>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('admin_dashboard', menu_view='today') }}" class="btn btn-secondary btn-sm {% if menu_view == 'today' %}active{% endif %}">Today</a>
+        <a href="{{ url_for('admin_dashboard', menu_view='weekly') }}" class="btn btn-secondary btn-sm {% if menu_view == 'weekly' %}active{% endif %}">Weekly</a>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if menu_view == 'weekly' %}
+        <div class="weekly-menu-grid">
+          {% for day in days %}
+            <section class="weekly-day-card">
+              <div class="weekly-day-heading">
+                <span class="weekly-day-dot"></span>
+                <h4>{{ day }}</h4>
+              </div>
+              <div class="weekly-meals">
+            {% for meal_name in ['Breakfast', 'Lunch', 'Dinner'] %}
+              {% set meal_info = weekly_menu.get(day, {}).get(meal_name, {}) %}
+              <div class="weekly-meal weekly-meal-{{ meal_name | lower }}">
+                <span class="weekly-meal-icon">{% if meal_name == 'Breakfast' %}🍳{% elif meal_name == 'Lunch' %}🍛{% else %}🍲{% endif %}</span>
+                <div class="weekly-meal-content">
+                  <span class="weekly-meal-name">{{ meal_name }}</span>
+                  <span class="weekly-meal-items {% if meal_info.get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">
+                    {% if meal_info.get('availability_status') == 'Not Available' %}Not available{% else %}{{ meal_info.get('items', 'Not configured') }}{% endif %}
+                  </span>
+                  {% if meal_info.get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍳</span> Breakfast (7:00 AM - 11:00 AM) {% if today_menu.get('Breakfast', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Breakfast', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Breakfast', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Breakfast', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍛</span> Lunch (12:00 PM - 4:00 PM) {% if today_menu.get('Lunch', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Lunch', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Lunch', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Lunch', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍲</span> Dinner (7:00 PM - 10:00 PM) {% if today_menu.get('Dinner', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Dinner', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Dinner', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Dinner', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+      {% endif %}
+    </div>
+</div>
+{% endblock %}

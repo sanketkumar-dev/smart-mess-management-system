@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+
+{% block title %}Students Directory - Smart Mess{% endblock %}
+{% block page_title %}Student Management Directory{% endblock %}
+{% block page_subtitle %}Register new students, update face biometric data, manage payments, and profiles{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+ACTION & FILTER BAR - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-body" style="padding: 16px 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      
+      <!-- Filter Form -->
+      <form method="GET" action="{{ url_for('admin_students') }}" style="display: flex; gap: 12px; flex-wrap: wrap; flex: 1;">
+        <input 
+          type="text" 
+          name="search" 
+          class="form-control" 
+          style="max-width: 260px;" 
+          placeholder="🔍 Search name, roll, ID..." 
+          value="{{ search }}"
+        >
+        
+        <select name="branch" class="form-control" style="max-width: 180px;">
+          <option value="">All Branches</option>
+          {% for b in branches %}
+            <option value="{{ b }}" {% if selected_branch == b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+
+        <select name="payment" class="form-control" style="max-width: 160px;">
+          <option value="">All Fee Status</option>
+          <option value="Paid" {% if selected_payment == 'Paid' %}selected{% endif %}>Paid</option>
+          <option value="Unpaid" {% if selected_payment == 'Unpaid' %}selected{% endif %}>Unpaid</option>
+          <option value="Pending" {% if selected_payment == 'Pending' %}selected{% endif %}>Pending</option>
+        </select>
+
+        <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        {% if search or selected_branch or selected_payment %}
+          <a href="{{ url_for('admin_students') }}" class="btn btn-secondary btn-sm" style="color: var(--danger);">Reset</a>
+        {% endif %}
+      </form>
+
+      <!-- Export and Add Student Actions -->
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('admin_export_student_day_counts', export_format='xlsx') }}" class="btn btn-secondary btn-sm">📊 Download Excel</a>
+        <a href="{{ url_for('admin_export_student_day_counts', export_format='pdf') }}" class="btn btn-secondary btn-sm">📄 Download PDF</a>
+        <button class="btn btn-primary" onclick="openModal('addStudentModal')">
+        <span>➕</span> <span>Register New Student</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+ACTION & FILTER BAR - END
+==========================================
+-->
+
+
+<!--
+==========================================
+STUDENT REGISTER TABLE - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>👥</span>
+      <h3>Registered Students ({{ students | length }})</h3>
+    </div>
+    <div>
+      <span class="badge badge-paid">Student Directory</span>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table" id="studentsTable">
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Full Name</th>
+            <th>Roll Number</th>
+            <th>Branch & Sem</th>
+            <th>Mobile</th>
+            <th>Fee Status</th>
+            <th>Face Status</th>
+            <th>Reg Date</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for student in students %}
+            <tr>
+              <td><strong style="color: var(--primary);">{{ student['student_id'] }}</strong></td>
+              <td>
+                <div style="font-weight: 600;">{{ student['full_name'] }}</div>
+              </td>
+              <td>{{ student['roll_number'] }}</td>
+              <td>
+                <div>{{ student['branch'] }}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Sem: {{ student['semester'] }}</div>
+              </td>
+              <td>{{ student['mobile_number'] }}</td>
+              <td>
+                <span class="badge badge-{{ student['payment_status'] | lower }}">
+                  {{ student['payment_status'] }}
+                </span>
+              </td>
+              <td>
+                {% if student['face_registered'] == 1 %}
+                  <span class="badge badge-paid">✅ Registered</span>
+                {% else %}
+                  <span class="badge badge-unpaid">❌ Pending</span>
+                {% endif %}
+              </td>
+              <td>{{ student['registration_date'] }}</td>
+              <td style="text-align: right; white-space: nowrap;">
+                <!-- View Profile -->
+                <button 
+                  class="btn btn-secondary btn-sm" 
+                  title="View Profile"
+                  onclick="viewStudentProfile('{{ student['student_id'] }}')"
+                >
+                  👁️
+                </button>
+                <!-- Update Face Biometric -->
+                <button 
+                  class="btn btn-outline-primary btn-sm" 
+                  title="Capture / Update Face"
+                  onclick="openUpdateFaceModal('{{ student['student_id'] }}', '{{ student['full_name'] }}')"
+                >
+                  📸 Face
+                </button>
+                <!-- Edit Student -->
+                <button 
+                  class="btn btn-secondary btn-sm" 
+                  title="Edit Student"
+                  onclick="openEditStudentModal('{{ student['student_id'] }}', '{{ student['full_name'] }}', '{{ student['roll_number'] }}', '{{ student['branch'] }}', '{{ student['semester'] }}', '{{ student['mobile_number'] }}', '{{ student['payment_status'] }}')"
+                >
+                  ✏️
+                </button>
+                <!-- Delete Student -->
+                <button 
+                  class="btn btn-danger btn-sm" 
+                  title="Delete Student"
+                  onclick="confirmDeleteStudent('{{ student['student_id'] }}', '{{ student['full_name'] }}')"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 36px;">
+                No registered students found matching the selected criteria.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+STUDENT REGISTER TABLE - END
+==========================================
+-->
+
+
+<!--
+==========================================
+ADD STUDENT MODAL WITH LIVE WEBCAM - START
+==========================================
+-->
+<div class="modal-overlay" id="addStudentModal">
+  <div class="modal-container modal-lg">
+    <div class="modal-header">
+      <h3>➕ Register New Student</h3>
+      <button class="modal-close" onclick="closeModal('addStudentModal')">✕</button>
+    </div>
+    
+    <form action="{{ url_for('admin_add_student') }}" method="POST" id="addStudentForm">
+      <div class="modal-body">
+        
+        <div class="grid-2">
+          <!-- Demographic Details -->
+          <div>
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 12px;">1. Academic & Contact Details</h4>
+            
+            <div class="form-group">
+              <label class="form-label">Student ID (Generated)</label>
+              <input type="text" name="student_id" class="form-control" value="{{ next_id }}" readonly style="background: #f1f5f9; font-weight: 700;">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Full Name <span class="required">*</span></label>
+              <input type="text" name="full_name" class="form-control" placeholder="e.g. Rahul Sharma" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Roll Number <span class="required">*</span></label>
+                <input type="text" name="roll_number" class="form-control" placeholder="e.g. 21CS105" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Semester <span class="required">*</span></label>
+                <select name="semester" class="form-control" required>
+                  <option value="1st">1st Sem</option>
+                  <option value="2nd">2nd Sem</option>
+                  <option value="3rd">3rd Sem</option>
+                  <option value="4th">4th Sem</option>
+                  <option value="5th">5th Sem</option>
+                  <option value="6th" selected>6th Sem</option>
+                  <option value="7th">7th Sem</option>
+                  <option value="8th">8th Sem</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Branch / Department <span class="required">*</span></label>
+              <input type="text" name="branch" class="form-control" placeholder="e.g. Computer Science" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Mobile Number <span class="required">*</span></label>
+                <input type="tel" name="mobile_number" class="form-control" placeholder="10-digit mobile" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Payment Status</label>
+                <select name="payment_status" class="form-control">
+                  <option value="Unpaid">Unpaid</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Portal Password (Default: student123)</label>
+              <input type="text" name="password" class="form-control" placeholder="student123">
+            </div>
+          </div>
+
+          <!-- Face Registration Camera Section -->
+          <div>
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 12px;">2. Face Biometric Capture</h4>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+              Capture the student's face directly using the website webcam. You can also recapture or update later.
+            </p>
+
+            <div style="background: #020617; border-radius: var(--radius-md); padding: 12px; text-align: center;">
+              <div style="position: relative; width: 100%; height: 220px; background: #0f172a; border-radius: var(--radius-sm); overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <video id="regVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <img id="regPreview" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Face Preview">
+                <canvas id="regCanvas" style="display: none;"></canvas>
+              </div>
+
+              <!-- Hidden base64 input -->
+              <input type="hidden" name="face_image_b64" id="face_image_b64">
+
+              <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: center;">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btnStartCam" onclick="startRegCamera()">
+                  📹 Start Camera
+                </button>
+                <button type="button" class="btn btn-success btn-sm d-none" id="btnCaptureFace" onclick="captureRegFace()">
+                  📸 Capture Face
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm d-none" id="btnRetakeFace" onclick="retakeRegFace()">
+                  🔄 Retake
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addStudentModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Student</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+<!--
+==========================================
+ADD STUDENT MODAL WITH LIVE WEBCAM - END
+==========================================
+-->
+
+
+<!--
+==========================================
+EDIT STUDENT MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="editStudentModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>✏️ Edit Student Details</h3>
+      <button class="modal-close" onclick="closeModal('editStudentModal')">✕</button>
+    </div>
+    
+    <form id="editStudentForm" method="POST">
+      <div class="modal-body">
+        
+        <div class="form-group">
+          <label class="form-label">Student ID</label>
+          <input type="text" id="edit_student_id" class="form-control" readonly style="background: #f1f5f9; font-weight: 700;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="full_name" id="edit_full_name" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Roll Number</label>
+            <input type="text" name="roll_number" id="edit_roll_number" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Semester</label>
+            <input type="text" name="semester" id="edit_semester" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Branch</label>
+          <input type="text" name="branch" id="edit_branch" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Mobile Number</label>
+            <input type="tel" name="mobile_number" id="edit_mobile_number" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Status</label>
+            <select name="payment_status" id="edit_payment_status" class="form-control">
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Pending">Pending</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Reset Password (Optional)</label>
+          <input type="text" name="new_password" class="form-control" placeholder="Leave blank to keep existing">
+        </div>
+
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Details</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+EDIT STUDENT MODAL - END
+==========================================
+-->
+
+
+<!--
+==========================================
+UPDATE / RECAPTURE FACE MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="updateFaceModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>📸 Update Face Model: <span id="updateFaceName"></span></h3>
+      <button class="modal-close" onclick="closeUpdateFaceModal()">✕</button>
+    </div>
+    
+    <div class="modal-body" style="text-align: center;">
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+        Stay centered in front of the camera while 20 face samples are captured automatically.
+      </p>
+
+      <div style="background: #020617; border-radius: var(--radius-md); padding: 14px;">
+        <div style="position: relative; width: 100%; height: 260px; background: #0f172a; border-radius: var(--radius-sm); overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <video id="updateFaceVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+          <canvas id="updateFaceCanvas" style="display: none;"></canvas>
+        </div>
+
+        <div style="margin-top: 14px; display: flex; gap: 10px; justify-content: center;">
+          <button type="button" class="btn btn-outline-primary" id="btnStartUpdateCam" onclick="startUpdateFaceCam()">
+            📹 Start Camera
+          </button>
+          <button type="button" class="btn btn-success d-none" id="btnCaptureUpdateFace" onclick="submitFaceUpdate()">
+            📸 Register Face (20 Samples)
+          </button>
+        </div>
+        <div id="faceCaptureProgress" style="margin-top: 10px; min-height: 20px; font-size: 13px; color: var(--text-muted);" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeUpdateFaceModal()">Close</button>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+UPDATE / RECAPTURE FACE MODAL - END
+==========================================
+-->
+
+
+<!--
+==========================================
+STUDENT PROFILE VIEW MODAL - START
+==========================================
+-->
+<div class="modal-overlay" id="studentProfileModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>🎓 Student Profile Overview</h3>
+      <button class="modal-close" onclick="closeModal('studentProfileModal')">✕</button>
+    </div>
+    <div class="modal-body" id="profileModalContent">
+      <div style="text-align: center; padding: 20px;">Loading student profile...</div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('studentProfileModal')">Close</button>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+STUDENT PROFILE VIEW MODAL - END
+==========================================
+-->
+
+
+<!--
+==========================================
+DELETE STUDENT CONFIRMATION FORM - START
+==========================================
+-->
+<form id="deleteStudentForm" method="POST" style="display: none;"></form>
+<!--
+==========================================
+DELETE STUDENT CONFIRMATION FORM - END
+==========================================
+-->
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Helper for opening Edit Student Modal
+  function openEditStudentModal(id, name, roll, branch, sem, mobile, payment) {
+    document.getElementById("edit_student_id").value = id;
+    document.getElementById("edit_full_name").value = name;
+    document.getElementById("edit_roll_number").value = roll;
+    document.getElementById("edit_branch").value = branch;
+    document.getElementById("edit_semester").value = sem;
+    document.getElementById("edit_mobile_number").value = mobile;
+    document.getElementById("edit_payment_status").value = payment;
+    document.getElementById("editStudentForm").action = `/admin/students/${id}/edit`;
+    openModal("editStudentModal");
+  }
+
+  // Delete Confirmation
+  function confirmDeleteStudent(id, name) {
+    if (confirm(`Are you sure you want to permanently delete student ${name} (${id})? All associated meal attendance records and face models will be removed.`)) {
+      const form = document.getElementById("deleteStudentForm");
+      form.action = `/admin/students/${id}/delete`;
+      form.submit();
+    }
+  }
+
+  // View Student Profile Modal Fetch
+  async function viewStudentProfile(id) {
+    openModal("studentProfileModal");
+    const container = document.getElementById("profileModalContent");
+    container.innerHTML = `<div style="text-align: center; padding: 20px;">Loading profile data...</div>`;
+
+    try {
+      const res = await fetch(`/admin/students/${id}/profile-json`);
+      const s = await res.json();
+
+      container.innerHTML = `
+        <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color);">
+          <div style="width: 70px; height: 70px; border-radius: var(--radius-lg); background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+            🎓
+          </div>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #0f172a;">${s.full_name}</h3>
+            <div style="font-size: 13px; color: #64748b;"><strong>ID:</strong> ${s.student_id} | <strong>Roll No:</strong> ${s.roll_number}</div>
+            <div style="margin-top: 4px;">
+              <span class="badge badge-${s.payment_status.toLowerCase()}">${s.payment_status} Fee</span>
+              ${s.face_registered ? '<span class="badge badge-paid">Face Model Active</span>' : '<span class="badge badge-unpaid">No Face Model</span>'}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 20px;">
+          <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Academic Details</div>
+            <div style="font-size: 13px; margin-top: 4px;"><strong>Branch:</strong> ${s.branch}</div>
+            <div style="font-size: 13px;"><strong>Semester:</strong> ${s.semester}</div>
+            <div style="font-size: 13px;"><strong>Mobile:</strong> ${s.mobile_number}</div>
+          </div>
+
+          <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Mess Attendance Totals</div>
+            <div style="font-size: 13px; margin-top: 4px;"><strong>Total Meals:</strong> ${s.total_meals}</div>
+            <div style="font-size: 12px; color: #475569;">Breakfast: ${s.breakfast_count} | Lunch: ${s.lunch_count} | Dinner: ${s.dinner_count}</div>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      container.innerHTML = `<div style="color: var(--danger); text-align: center;">Failed to load profile.</div>`;
+    }
+  }
+
+  // Update Face Workflow
+  let updateCam = null;
+  let activeUpdateStudentId = null;
+
+  function openUpdateFaceModal(id, name) {
+    activeUpdateStudentId = id;
+    document.getElementById("updateFaceName").innerText = `${name} (${id})`;
+    openModal("updateFaceModal");
+  }
+
+  async function startUpdateFaceCam() {
+    if (!updateCam) {
+      updateCam = new MessCamera("updateFaceVideo", "updateFaceCanvas");
+    }
+    const ok = await updateCam.start();
+    if (ok) {
+      document.getElementById("btnStartUpdateCam").classList.add("d-none");
+      document.getElementById("btnCaptureUpdateFace").classList.remove("d-none");
+    }
+  }
+
+  function closeUpdateFaceModal() {
+    if (updateCam) {
+      updateCam.stop();
+    }
+    document.getElementById("btnStartUpdateCam")?.classList.remove("d-none");
+    document.getElementById("btnCaptureUpdateFace")?.classList.add("d-none");
+    closeModal("updateFaceModal");
+  }
+
+  async function submitFaceUpdate() {
+    if (!updateCam || !activeUpdateStudentId) return;
+    const captureButton = document.getElementById("btnCaptureUpdateFace");
+    const progress = document.getElementById("faceCaptureProgress");
+    const samples = [];
+    captureButton.disabled = true;
+
+    try {
+      for (let sampleNumber = 1; sampleNumber <= 20; sampleNumber += 1) {
+        const b64 = updateCam.captureBase64();
+        if (!b64) {
+          throw new Error("Could not capture a frame from the camera.");
+        }
+        samples.push(b64);
+        progress.innerText = `Capturing face samples: ${sampleNumber}/20`;
+        if (sampleNumber < 20) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+      }
+
+      progress.innerText = "20/20 captured. Training face model...";
+      const res = await fetch(`/admin/students/${activeUpdateStudentId}/register-face`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images_b64: samples })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        AudioFeedback.playSuccess();
+        showToast(data.message, "success");
+        closeUpdateFaceModal();
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        AudioFeedback.playWarning();
+        captureButton.disabled = false;
+        showToast(data.message, "danger");
+      }
+    } catch (err) {
+      captureButton.disabled = false;
+      progress.innerText = "Capture failed. Please try again.";
+      showToast(err.message || "Server error updating face data", "danger");
+    }
+  }
+</script>
+{% endblock %}

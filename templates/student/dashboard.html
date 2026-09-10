@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Student Portal - Smart Mess{% endblock %}
+{% block page_title %}Student Mess Dashboard{% endblock %}
+{% block page_subtitle %}Daily meal schedule and mess updates{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+STUDENT PROFILE HEADER CARD - START
+==========================================
+-->
+<div class="card" style="border-top: 4px solid var(--primary);">
+  <div class="card-body">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+      
+      <div style="display: flex; align-items: center; gap: 18px;">
+        <div style="width: 64px; height: 64px; border-radius: var(--radius-lg); background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+          🎓
+        </div>
+        <div>
+          <h3 style="font-size: 20px; font-weight: 800; color: #0f172a;">{{ student['full_name'] }}</h3>
+          <div style="font-size: 13.5px; color: #64748b; margin-top: 2px;">
+            <strong>ID:</strong> {{ student['student_id'] }} &nbsp;|&nbsp; 
+            <strong>Roll No:</strong> {{ student['roll_number'] }} &nbsp;|&nbsp; 
+            <strong>Dept:</strong> {{ student['branch'] }} (Sem: {{ student['semester'] }})
+          </div>
+        </div>
+      </div>
+
+      <!-- Badges -->
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Mess Fee Status</div>
+          <span class="badge badge-{{ student['payment_status'] | lower }}" style="font-size: 13px; padding: 6px 14px; margin-top: 2px;">
+            {% if student['payment_status'] == 'Paid' %}
+              ✅ Fee Cleared (Active)
+            {% elif student['payment_status'] == 'Unpaid' %}
+              ⚠️ Fee Overdue (Please Pay)
+            {% else %}
+              ⏳ Verification Pending
+            {% endif %}
+          </span>
+        </div>
+
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Facial Biometrics</div>
+          {% if student['face_registered'] == 1 %}
+            <span class="badge badge-paid" style="font-size: 13px; padding: 6px 14px; margin-top: 2px;">
+              📸 Face Enrolled
+            </span>
+          {% else %}
+            <span class="badge badge-unpaid" style="font-size: 13px; padding: 6px 14px; margin-top: 2px;">
+              ❌ Visit Warden to Enroll
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+STUDENT PROFILE HEADER CARD - END
+==========================================
+-->
+
+
+<!--
+==========================================
+STUDENT MEAL METRICS - START
+==========================================
+-->
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Total Meals Taken</h3>
+      <div class="metric-number">{{ total_meals }}</div>
+      <div class="metric-sub">This billing cycle</div>
+    </div>
+    <div class="metric-icon icon-blue">🍽️</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Breakfast Count</h3>
+      <div class="metric-number">{{ breakfast_count }}</div>
+      <div class="metric-sub">Morning meals</div>
+    </div>
+    <div class="metric-icon icon-emerald">🍳</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Lunch Count</h3>
+      <div class="metric-number">{{ lunch_count }}</div>
+      <div class="metric-sub">Afternoon meals</div>
+    </div>
+    <div class="metric-icon icon-amber">🍛</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Dinner Count</h3>
+      <div class="metric-number">{{ dinner_count }}</div>
+      <div class="metric-sub">Evening meals</div>
+    </div>
+    <div class="metric-icon icon-purple">🍲</div>
+  </div>
+</div>
+<!--
+==========================================
+STUDENT MEAL METRICS - END
+==========================================
+-->
+
+
+<!--
+==========================================
+TODAY'S MENU & NOTICES SECTION - START
+==========================================
+-->
+<div class="student-dashboard-sections">
+  <div class="card dashboard-menu">
+    <div class="card-header">
+      <div class="card-title">
+        <span>🍽️</span>
+        <h3>Mess Menu</h3>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('student_dashboard', menu_view='today') }}" class="btn btn-secondary btn-sm {% if menu_view == 'today' %}active{% endif %}">Today</a>
+        <a href="{{ url_for('student_dashboard', menu_view='weekly') }}" class="btn btn-secondary btn-sm {% if menu_view == 'weekly' %}active{% endif %}">Weekly</a>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if menu_view == 'weekly' %}
+        <div class="weekly-menu-grid">
+          {% for day in days %}
+            <section class="weekly-day-card">
+              <div class="weekly-day-heading">
+                <span class="weekly-day-dot"></span>
+                <h4>{{ day }}</h4>
+              </div>
+              <div class="weekly-meals">
+            {% for meal_name in ['Breakfast', 'Lunch', 'Dinner'] %}
+              {% set meal_info = weekly_menu.get(day, {}).get(meal_name, {}) %}
+              <div class="weekly-meal weekly-meal-{{ meal_name | lower }}">
+                <span class="weekly-meal-icon">{% if meal_name == 'Breakfast' %}🍳{% elif meal_name == 'Lunch' %}🍛{% else %}🍲{% endif %}</span>
+                <div class="weekly-meal-content">
+                  <span class="weekly-meal-name">{{ meal_name }}</span>
+                  <span class="weekly-meal-items {% if meal_info.get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">
+                    {% if meal_info.get('availability_status') == 'Not Available' %}Not available{% else %}{{ meal_info.get('items', 'Not configured') }}{% endif %}
+                  </span>
+                  {% if meal_info.get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍳</span> Breakfast (7:00 AM - 11:00 AM) {% if today_menu.get('Breakfast', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Breakfast', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Breakfast', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Breakfast', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍛</span> Lunch (12:00 PM - 4:00 PM) {% if today_menu.get('Lunch', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Lunch', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Lunch', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Lunch', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+        <div class="meal-slot">
+          <div class="meal-slot-label"><span>🍲</span> Dinner (7:00 PM - 10:00 PM) {% if today_menu.get('Dinner', {}).get('availability_status') == 'Special Menu' %}<span class="meal-status-inline status-special">Special Menu</span>{% endif %}</div>
+          <div class="meal-slot-items {% if today_menu.get('Dinner', {}).get('availability_status') == 'Not Available' %}meal-unavailable{% endif %}">{% if today_menu.get('Dinner', {}).get('availability_status') == 'Not Available' %}Not available{% else %}{{ today_menu.get('Dinner', {}).get('items', 'Not configured') }}{% endif %}</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Important Hostel Notices -->
+  <div class="card student-announcements">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="font-size: 20px;">📢</span>
+        <h3>Hostel & Mess Announcements</h3>
+      </div>
+    </div>
+    <div class="card-body" style="max-height: 340px; overflow-y: auto;">
+      {% for n in notices %}
+        <div class="notice-item priority-{{ n['priority'] | lower }}">
+          <div class="notice-header">
+            <div class="notice-title">{{ n['title'] }}</div>
+            <span class="badge badge-{{ n['priority'] | lower }}">{{ n['priority'] }}</span>
+          </div>
+          <p style="font-size: 13px; color: #334155; margin-top: 4px;">{{ n['content'] }}</p>
+          <div class="notice-meta">
+            <span>📅 {{ n['created_at'] }}</span>
+            <span>👤 {{ n['created_by'] }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div style="text-align: center; color: var(--text-muted); padding: 30px;">
+          No active hostel notices right now.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+TODAY'S MENU & NOTICES SECTION - END
+==========================================
+-->
+
+
+<!--
+==========================================
+RECENT MEAL LOGS & QUICK ACTIONS - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span style="font-size: 20px;">📆</span>
+      <h3>My Recent Meal Scans</h3>
+    </div>
+    <div>
+      <a href="{{ url_for('student_complaints') }}" class="btn btn-primary btn-sm">✍️ Submit Feedback</a>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Meal Slot</th>
+            <th>Scan Timestamp</th>
+            <th>Verification Mode</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recent_attendance %}
+            <tr>
+              <td><strong>{{ r['date'] }}</strong></td>
+              <td><span class="badge badge-{{ r['meal'] | lower }}">{{ r['meal'] }}</span></td>
+              <td>{{ r['time'] }}</td>
+              <td>
+                {% if r['marked_by'] == 'Face Recognition' %}
+                  <span class="badge badge-paid">📸 Face Verified</span>
+                {% else %}
+                  <span class="badge badge-normal">✍️ Manual Override</span>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-paid">Present</span></td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 28px;">
+                No meal attendance records recorded yet this month.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+RECENT MEAL LOGS & QUICK ACTIONS - END
+==========================================
+-->
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Fee Payment Tracking - Smart Mess{% endblock %}
+{% block page_title %}Student Mess Fee & Dues Management{% endblock %}
+{% block page_subtitle %}Monitor hostel mess subscriptions, pending dues, and update payment verification status{% endblock %}
+
+{% block content %}
+<!--
+==========================================
+FEE SUMMARY METRICS - START
+==========================================
+-->
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Total Subscribed</h3>
+      <div class="metric-number">{{ stats['total'] }}</div>
+      <div class="metric-sub">Enrolled students</div>
+    </div>
+    <div class="metric-icon icon-blue">👥</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Paid Students</h3>
+      <div class="metric-number" style="color: var(--success);">{{ stats['paid'] }}</div>
+      <div class="metric-sub">Dues cleared</div>
+    </div>
+    <div class="metric-icon icon-emerald">✅</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Unpaid Students</h3>
+      <div class="metric-number" style="color: var(--danger);">{{ stats['unpaid'] }}</div>
+      <div class="metric-sub">Payment pending</div>
+    </div>
+    <div class="metric-icon icon-rose">⚠️</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-info">
+      <h3>Pending Verification</h3>
+      <div class="metric-number" style="color: var(--warning);">{{ stats['pending'] }}</div>
+      <div class="metric-sub">Bank slip submitted</div>
+    </div>
+    <div class="metric-icon icon-amber">⏳</div>
+  </div>
+</div>
+<!--
+==========================================
+FEE SUMMARY METRICS - END
+==========================================
+-->
+
+
+<!--
+==========================================
+FEE STATUS FILTER & TABLE - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>💳</span>
+      <h3>Mess Fee Roster ({{ students | length }})</h3>
+    </div>
+    <form method="GET" action="{{ url_for('admin_payments') }}" style="display: flex; gap: 10px;">
+      <select name="status" class="form-control" style="max-width: 160px;" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        <option value="Paid" {% if selected_status == 'Paid' %}selected{% endif %}>Paid</option>
+        <option value="Unpaid" {% if selected_status == 'Unpaid' %}selected{% endif %}>Unpaid</option>
+        <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>Pending</option>
+      </select>
+      <input type="text" id="paySearch" class="form-control" placeholder="Search student..." onkeyup="filterTable('paySearch', 'paymentTable')">
+    </form>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table" id="paymentTable">
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Roll Number</th>
+            <th>Branch</th>
+            <th>Mobile</th>
+            <th>Current Status</th>
+            <th>Monthly Fee</th>
+            <th style="text-align: right;">Quick Status Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+            <tr>
+              <td><strong style="color: var(--primary);">{{ s['student_id'] }}</strong></td>
+              <td><strong>{{ s['full_name'] }}</strong></td>
+              <td>{{ s['roll_number'] }}</td>
+              <td>{{ s['branch'] }}</td>
+              <td>{{ s['mobile_number'] }}</td>
+              <td>
+                <span class="badge badge-{{ s['payment_status'] | lower }}">
+                  {{ s['payment_status'] }}
+                </span>
+              </td>
+              <td><strong>₹{{ "{:,}".format(monthly_fee) }} / mo</strong></td>
+              <td style="text-align: right;">
+                <form action="{{ url_for('admin_update_payment_status', student_id=s['student_id']) }}" method="POST" style="display: inline-flex; gap: 6px;">
+                  {% if s['payment_status'] != 'Paid' %}
+                    <button type="submit" name="status" value="Paid" class="btn btn-success btn-sm" title="Mark as Paid">
+                      Mark Paid
+                    </button>
+                  {% endif %}
+                  {% if s['payment_status'] != 'Unpaid' %}
+                    <button type="submit" name="status" value="Unpaid" class="btn btn-danger btn-sm" title="Mark as Unpaid">
+                      Mark Unpaid
+                    </button>
+                  {% endif %}
+                  {% if s['payment_status'] != 'Pending' %}
+                    <button type="submit" name="status" value="Pending" class="btn btn-secondary btn-sm" title="Mark as Pending">
+                      Set Pending
+                    </button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 36px;">
+                No students found matching this status.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+FEE STATUS FILTER & TABLE - END
+==========================================
+-->
+{% endblock %}
