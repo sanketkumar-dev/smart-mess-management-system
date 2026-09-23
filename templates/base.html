@@ -67,6 +67,17 @@
             </a>
           </li>
 
+          <li class="menu-item {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
+            <a href="{{ url_for('admin_analytics') }}" class="menu-link">
+              <i>📉</i> <span>Attendance Analytics</span>
+            </a>
+          </li>
+          <li class="menu-item {% if request.endpoint == 'admin_polls' %}active{% endif %}">
+            <a href="{{ url_for('admin_polls') }}" class="menu-link">
+              <i>🗳️</i> <span>Mess Polls</span>
+            </a>
+          </li>
+
           <li class="menu-item {% if request.endpoint == 'admin_menu' %}active{% endif %}">
             <a href="{{ url_for('admin_menu') }}" class="menu-link">
               <i>🍽️</i> <span>Menu Management</span>

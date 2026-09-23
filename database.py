@@ -153,6 +153,33 @@ def init_db():
     );
     """)
 
+    # 8. Polls Table (admin-created polls, e.g. "will you eat tomorrow's dinner?")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS polls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT NOT NULL,
+        meal TEXT,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        created_by TEXT DEFAULT 'Mess Admin',
+        created_at TEXT NOT NULL
+    );
+    """)
+
+    # 9. Poll Responses Table (one response per student per poll)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS poll_responses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        poll_id INTEGER NOT NULL,
+        student_id TEXT NOT NULL,
+        response TEXT NOT NULL,
+        responded_at TEXT NOT NULL,
+        FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+        UNIQUE (poll_id, student_id)
+    );
+    """)
+
     conn.commit()
     conn.close()
 # ==========================================
@@ -312,6 +339,35 @@ def seed_demo_data():
         INSERT INTO complaints (complaint_id, student_id, category, title, description, status, admin_response, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, sample_complaints)
+
+        # 6. Seed a demo poll (active for the next 2 days) so the Polls feature
+        # has something to show/test immediately, with a couple of sample responses.
+        cursor.execute("SELECT COUNT(*) FROM polls")
+        if cursor.fetchone()[0] == 0:
+            poll_start = datetime.now().strftime("%Y-%m-%dT%H:%M")
+            poll_end = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
+            cursor.execute("""
+            INSERT INTO polls (question, meal, start_time, end_time, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                "Kal Dinner mein Paneer Butter Masala banega — aayenge?",
+                "Dinner",
+                poll_start,
+                poll_end,
+                "Mess Admin",
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+            poll_id = cursor.lastrowid
+
+            sample_responses = [
+                (poll_id, "STU001", "Yes", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                (poll_id, "STU002", "Yes", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                (poll_id, "STU003", "No", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            ]
+            cursor.executemany("""
+            INSERT INTO poll_responses (poll_id, student_id, response, responded_at)
+            VALUES (?, ?, ?, ?)
+            """, sample_responses)
 
     conn.commit()
     conn.close()

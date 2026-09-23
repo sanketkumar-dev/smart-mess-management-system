@@ -69,6 +69,56 @@ STUDENT PROFILE HEADER CARD - END
 
 <!--
 ==========================================
+ACTIVE MESS POLLS - START
+==========================================
+-->
+{% if active_polls %}
+  {% for poll in active_polls %}
+    <div class="card" style="border-top: 4px solid var(--warning, #f59e0b); margin-bottom: 20px;">
+      <div class="card-body">
+        <div style="display:flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">
+              🗳️ Mess Poll {% if poll.meal %}· {{ poll.meal }}{% endif %}
+            </div>
+            <p style="font-size: 15px; font-weight: 700; margin-top: 4px;">{{ poll.question }}</p>
+            <div style="font-size: 12px; color: #64748b;">Closes: {{ poll.end_time.replace('T', ' ') }}</div>
+          </div>
+
+          {% if poll.my_response %}
+            <div style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+              <span class="badge {% if poll.my_response == 'Yes' %}badge-paid{% else %}badge-unpaid{% endif %}" style="font-size: 13px; padding: 6px 14px;">
+                You said: {{ poll.my_response }}
+              </span>
+              <form method="POST" action="{{ url_for('student_poll_respond', poll_id=poll.id) }}" style="display:flex; gap: 8px;">
+                {% if poll.my_response != 'Yes' %}
+                  <button type="submit" name="response" value="Yes" class="btn btn-primary btn-sm">Change to Yes</button>
+                {% endif %}
+                {% if poll.my_response != 'No' %}
+                  <button type="submit" name="response" value="No" class="btn btn-secondary btn-sm">Change to No</button>
+                {% endif %}
+              </form>
+            </div>
+          {% else %}
+            <form method="POST" action="{{ url_for('student_poll_respond', poll_id=poll.id) }}" style="display:flex; gap: 8px;">
+              <button type="submit" name="response" value="Yes" class="btn btn-primary btn-sm">✅ Yes, I'll eat</button>
+              <button type="submit" name="response" value="No" class="btn btn-secondary btn-sm">❌ No</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}
+<!--
+==========================================
+ACTIVE MESS POLLS - END
+==========================================
+-->
+
+
+<!--
+==========================================
 STUDENT MEAL METRICS - START
 ==========================================
 -->

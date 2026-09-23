@@ -281,6 +281,41 @@ def admin_dashboard():
     today_menu_rows = cursor.fetchall()
     today_menu = {row["meal_type"]: {"items": row["items"], "special_notes": row["special_notes"], "availability_status": row["availability_status"]} for row in today_menu_rows}
 
+    # ---------- Weekly attendance mini-chart (last 7 days, all meals) ----------
+    weekly_chart = []
+    for i in range(6, -1, -1):
+        day_str = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        day_label = (datetime.now() - timedelta(days=i)).strftime("%d %b")
+        cursor.execute("SELECT COUNT(*) FROM attendance WHERE date = ? AND meal = 'Breakfast'", (day_str,))
+        b = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM attendance WHERE date = ? AND meal = 'Lunch'", (day_str,))
+        l = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM attendance WHERE date = ? AND meal = 'Dinner'", (day_str,))
+        d = cursor.fetchone()[0]
+        weekly_chart.append({"label": day_label, "breakfast": b, "lunch": l, "dinner": d})
+
+    # ---------- Active poll summary (for a quick head-count widget) ----------
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    cursor.execute("""
+    SELECT * FROM polls WHERE start_time <= ? AND end_time >= ? ORDER BY id DESC LIMIT 1
+    """, (now_str, now_str))
+    active_poll_row = cursor.fetchone()
+    active_poll = None
+    if active_poll_row:
+        cursor.execute("SELECT response, COUNT(*) as cnt FROM poll_responses WHERE poll_id = ? GROUP BY response", (active_poll_row["id"],))
+        tally_rows = cursor.fetchall()
+        tally = {"Yes": 0, "No": 0}
+        for r in tally_rows:
+            tally[r["response"]] = r["cnt"]
+        active_poll = {
+            "id": active_poll_row["id"],
+            "question": active_poll_row["question"],
+            "meal": active_poll_row["meal"],
+            "end_time": active_poll_row["end_time"],
+            "yes_count": tally["Yes"],
+            "no_count": tally["No"]
+        }
+
     conn.close()
 
     return render_template(
@@ -301,7 +336,9 @@ def admin_dashboard():
         recent_notices=recent_notices,
         menu_view=menu_view,
         days=days,
-        current_day=current_day
+        current_day=current_day,
+        weekly_chart=weekly_chart,
+        active_poll=active_poll
     )
 # ==========================================
 # ADMIN DASHBOARD & ANALYTICS - END
@@ -836,6 +873,195 @@ def admin_attendance_records():
     )
 
 
+@app.route("/admin/analytics")
+@admin_required
+def admin_analytics():
+    """
+    Attendance Analytics for the Admin:
+    - Weekly (last 7 days) meal-wise attendance, alongside that day's menu item
+      (so admin can spot patterns, e.g. low turnout on a Poha day, high turnout
+      on a non-veg day).
+    - Monthly (last 30 days) daily attendance trend.
+    - Student search by ID or name -> payment status + total days attended.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    meal_types = ["Breakfast", "Lunch", "Dinner"]
+
+    # ---------- Weekly breakdown (last 7 days), with that day's menu ----------
+    weekly_data = []
+    for i in range(6, -1, -1):
+        day_date = datetime.now() - timedelta(days=i)
+        day_str = day_date.strftime("%Y-%m-%d")
+        day_name = day_date.strftime("%A")
+
+        day_entry = {"date": day_str, "day_name": day_name, "meals": {}, "total_attended": 0}
+        for meal in meal_types:
+            cursor.execute("SELECT COUNT(*) FROM attendance WHERE date = ? AND meal = ?", (day_str, meal))
+            attended = cursor.fetchone()[0]
+
+            cursor.execute("SELECT items FROM menu WHERE day_of_week = ? AND meal_type = ?", (day_name, meal))
+            menu_row = cursor.fetchone()
+            menu_items = menu_row["items"] if menu_row else "Not set"
+
+            day_entry["meals"][meal] = {"attended": attended, "items": menu_items}
+            day_entry["total_attended"] += attended
+
+        weekly_data.append(day_entry)
+
+    # ---------- Monthly trend (last 30 days), total attendance per day ----------
+    monthly_data = []
+    for i in range(29, -1, -1):
+        day_str = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        cursor.execute("SELECT COUNT(*) FROM attendance WHERE date = ?", (day_str,))
+        total = cursor.fetchone()[0]
+        monthly_data.append({"date": day_str, "total": total})
+
+    # ---------- Student search (by ID or name) ----------
+    student_q = request.args.get("student_q", "").strip()
+    search_results = []
+    if student_q:
+        cursor.execute("""
+        SELECT student_id, full_name, roll_number, branch, payment_status
+        FROM students
+        WHERE student_id LIKE ? OR full_name LIKE ?
+        ORDER BY full_name
+        """, (f"%{student_q}%", f"%{student_q}%"))
+        matched_students = cursor.fetchall()
+
+        for s in matched_students:
+            cursor.execute("SELECT COUNT(*) FROM attendance WHERE student_id = ?", (s["student_id"],))
+            days_attended = cursor.fetchone()[0]
+            search_results.append({
+                "student_id": s["student_id"],
+                "full_name": s["full_name"],
+                "roll_number": s["roll_number"],
+                "branch": s["branch"],
+                "payment_status": s["payment_status"],
+                "days_attended": days_attended
+            })
+
+    conn.close()
+    return render_template(
+        "admin/analytics.html",
+        weekly_data=weekly_data,
+        monthly_data=monthly_data,
+        meal_types=meal_types,
+        student_q=student_q,
+        search_results=search_results
+    )
+
+
+# ==========================================
+# MESS POLLS (admin creates, students respond) - START
+# ==========================================
+@app.route("/admin/polls", methods=["GET", "POST"])
+@admin_required
+def admin_polls():
+    """
+    Admin can create a poll (custom question, optional meal tag, start/end time)
+    so students can say whether they'll eat a given meal. Response counts give
+    the admin a rough head-count estimate for how much food to prepare.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        question = request.form.get("question", "").strip()
+        meal = request.form.get("meal", "").strip()
+        start_time = request.form.get("start_time", "").strip()
+        end_time = request.form.get("end_time", "").strip()
+
+        if not question or not start_time or not end_time:
+            flash("Question, start time and end time are all required.", "danger")
+        elif end_time <= start_time:
+            flash("End time must be after start time.", "danger")
+        else:
+            cursor.execute("""
+            INSERT INTO polls (question, meal, start_time, end_time, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (question, meal or None, start_time, end_time, session.get("user_name", "Mess Admin"),
+                  datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
+            flash("Poll created successfully.", "success")
+
+        conn.close()
+        return redirect(url_for("admin_polls"))
+
+    cursor.execute("SELECT * FROM polls ORDER BY id DESC")
+    polls = cursor.fetchall()
+
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    poll_list = []
+    for p in polls:
+        cursor.execute("SELECT response, COUNT(*) as cnt FROM poll_responses WHERE poll_id = ? GROUP BY response", (p["id"],))
+        tally_rows = cursor.fetchall()
+        tally = {"Yes": 0, "No": 0}
+        for r in tally_rows:
+            tally[r["response"]] = r["cnt"]
+
+        is_active = p["start_time"] <= now_str <= p["end_time"]
+        poll_list.append({
+            "id": p["id"],
+            "question": p["question"],
+            "meal": p["meal"],
+            "start_time": p["start_time"],
+            "end_time": p["end_time"],
+            "created_by": p["created_by"],
+            "is_active": is_active,
+            "yes_count": tally["Yes"],
+            "no_count": tally["No"],
+            "total_responses": tally["Yes"] + tally["No"]
+        })
+
+    conn.close()
+    return render_template("admin/polls.html", polls=poll_list, meal_types=["Breakfast", "Lunch", "Dinner"])
+
+
+@app.route("/admin/polls/<int:poll_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_poll(poll_id):
+    """Removes a poll and all of its student responses."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM polls WHERE id = ?", (poll_id,))
+    conn.commit()
+    conn.close()
+    flash("Poll deleted.", "success")
+    return redirect(url_for("admin_polls"))
+
+
+@app.route("/student/poll/<int:poll_id>/respond", methods=["POST"])
+@student_required
+def student_poll_respond(poll_id):
+    """Records (or updates) the logged-in student's Yes/No response to a poll."""
+    student_id = session.get("student_id")
+    response = request.form.get("response", "").strip()
+
+    if response not in ("Yes", "No"):
+        flash("Invalid poll response.", "danger")
+        return redirect(url_for("student_dashboard"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO poll_responses (poll_id, student_id, response, responded_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(poll_id, student_id) DO UPDATE SET
+        response = excluded.response,
+        responded_at = excluded.responded_at
+    """, (poll_id, student_id, response, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    conn.commit()
+    conn.close()
+
+    flash("Your response has been recorded. Thanks!", "success")
+    return redirect(url_for("student_dashboard"))
+# ==========================================
+# MESS POLLS - END
+# ==========================================
+
+
 @app.route("/admin/attendance/<int:attendance_id>/delete", methods=["POST"])
 @admin_required
 def admin_delete_attendance(attendance_id):
@@ -1310,6 +1536,25 @@ def student_dashboard():
     """, (student_id,))
     my_complaints = cursor.fetchall()
 
+    # ---------- Active polls for this student ----------
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    cursor.execute("""
+    SELECT * FROM polls WHERE start_time <= ? AND end_time >= ? ORDER BY id DESC
+    """, (now_str, now_str))
+    active_poll_rows = cursor.fetchall()
+
+    active_polls = []
+    for p in active_poll_rows:
+        cursor.execute("SELECT response FROM poll_responses WHERE poll_id = ? AND student_id = ?", (p["id"], student_id))
+        my_response_row = cursor.fetchone()
+        active_polls.append({
+            "id": p["id"],
+            "question": p["question"],
+            "meal": p["meal"],
+            "end_time": p["end_time"],
+            "my_response": my_response_row["response"] if my_response_row else None
+        })
+
     conn.close()
 
     return render_template(
@@ -1327,7 +1572,8 @@ def student_dashboard():
         recent_attendance=recent_logs,
         recent_logs=recent_logs,
         notices=notices,
-        my_complaints=my_complaints
+        my_complaints=my_complaints,
+        active_polls=active_polls
     )
 
 

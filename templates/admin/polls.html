@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Mess Polls - Smart Mess{% endblock %}
+{% block page_title %}Mess Polls{% endblock %}
+{% block page_subtitle %}Ask students in advance who's eating, and get a head-count estimate before you cook{% endblock %}
+
+{% block content %}
+
+<!--
+==========================================
+CREATE POLL CARD - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header">
+    <div class="card-title">
+      <span>➕</span>
+      <h3>Create a New Poll</h3>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('admin_polls') }}">
+      <div style="margin-bottom: 14px;">
+        <label style="display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Question</label>
+        <input
+          type="text"
+          name="question"
+          class="form-control"
+          placeholder="e.g. Kal Dinner mein Paneer banega — aayenge?"
+          required
+        >
+      </div>
+
+      <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+        <div>
+          <label style="display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Meal (optional tag)</label>
+          <select name="meal" class="form-control">
+            <option value="">General</option>
+            {% for m in meal_types %}
+              <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Starts</label>
+          <input type="datetime-local" name="start_time" class="form-control" required>
+        </div>
+        <div>
+          <label style="display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Ends</label>
+          <input type="datetime-local" name="end_time" class="form-control" required>
+        </div>
+        <div style="align-self: flex-end;">
+          <button type="submit" class="btn btn-primary btn-sm">Create Poll</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<!--
+==========================================
+CREATE POLL CARD - END
+==========================================
+-->
+
+
+<!--
+==========================================
+POLL LIST CARD - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>🗳️</span>
+      <h3>All Polls ({{ polls | length }})</h3>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Meal</th>
+            <th>Window</th>
+            <th>Status</th>
+            <th>Yes</th>
+            <th>No</th>
+            <th>Estimate</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in polls %}
+            <tr>
+              <td><strong>{{ p.question }}</strong></td>
+              <td>
+                {% if p.meal %}
+                  <span class="badge badge-{{ p.meal | lower }}">{{ p.meal }}</span>
+                {% else %}
+                  <span class="badge badge-normal">General</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 12px; color: var(--text-muted);">{{ p.start_time.replace('T', ' ') }} → {{ p.end_time.replace('T', ' ') }}</td>
+              <td>
+                {% if p.is_active %}
+                  <span class="badge badge-paid">🟢 Active</span>
+                {% else %}
+                  <span class="badge badge-normal">⚪ Closed</span>
+                {% endif %}
+              </td>
+              <td><strong style="color: var(--success);">{{ p.yes_count }}</strong></td>
+              <td><strong style="color: var(--danger);">{{ p.no_count }}</strong></td>
+              <td>~{{ p.yes_count }} students expected ({{ p.total_responses }} responded)</td>
+              <td style="text-align: right;">
+                <form method="POST" action="{{ url_for('admin_delete_poll', poll_id=p.id) }}" style="display:inline;" onsubmit="return confirm('Delete this poll?');">
+                  <button class="btn btn-danger btn-sm" title="Delete poll">🗑️</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No polls created yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!--
+==========================================
+POLL LIST CARD - END
+==========================================
+-->
+
+{% endblock %}

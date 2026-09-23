@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Analytics - Smart Mess{% endblock %}
+{% block page_title %}Attendance Analytics{% endblock %}
+{% block page_subtitle %}Weekly & monthly turnout trends, menu correlation, and student-wise lookup{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!--
+==========================================
+WEEKLY CHART CARD - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header">
+    <div class="card-title">
+      <span>📊</span>
+      <h3>Weekly Attendance (Last 7 Days) — Breakfast / Lunch / Dinner</h3>
+    </div>
+  </div>
+  <div class="card-body">
+    <canvas id="weeklyChart" height="90"></canvas>
+  </div>
+</div>
+<!--
+==========================================
+WEEKLY CHART CARD - END
+==========================================
+-->
+
+
+<!--
+==========================================
+MONTHLY CHART CARD - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header">
+    <div class="card-title">
+      <span>📈</span>
+      <h3>Monthly Trend (Last 30 Days) — Total Attendance / Day</h3>
+    </div>
+  </div>
+  <div class="card-body">
+    <canvas id="monthlyChart" height="80"></canvas>
+  </div>
+</div>
+<!--
+==========================================
+MONTHLY CHART CARD - END
+==========================================
+-->
+
+
+<!--
+==========================================
+WEEKLY + MENU CORRELATION TABLE - START
+==========================================
+-->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header">
+    <div class="card-title">
+      <span>🍽️</span>
+      <h3>Day-wise Turnout vs. Menu Served</h3>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Meal</th>
+            <th>Items Served</th>
+            <th>Students Attended</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in weekly_data %}
+            {% for m in meal_types %}
+              {% set row = day.meals[m] %}
+              <tr>
+                {% if loop.first %}
+                  <td rowspan="3"><strong>{{ day.date }}</strong><br><span style="color: var(--text-muted); font-size: 12px;">{{ day.day_name }}</span></td>
+                {% endif %}
+                <td><span class="badge badge-{{ m | lower }}">{{ m }}</span></td>
+                <td>{{ row.items }}</td>
+                <td><strong>{{ row.attended }}</strong> students</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<p style="color: var(--text-muted); font-size: 13px; margin-top: -8px; margin-bottom: 20px;">
+  💡 Tip: Compare the "Items Served" column with "Students Attended" to spot patterns — e.g. a lighter breakfast item pulling in fewer students, or a special/non-veg day pulling in more.
+</p>
+<!--
+==========================================
+WEEKLY + MENU CORRELATION TABLE - END
+==========================================
+-->
+
+
+<!--
+==========================================
+STUDENT SEARCH CARD - START
+==========================================
+-->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>🔍</span>
+      <h3>Search a Student — Payment Status & Days Attended</h3>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('admin_analytics') }}" style="display: flex; gap: 12px; margin-bottom: 16px;">
+      <input
+        type="text"
+        name="student_q"
+        class="form-control"
+        style="max-width: 320px;"
+        placeholder="🔍 Student ID or Name..."
+        value="{{ student_q }}"
+      >
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+      {% if student_q %}
+        <a href="{{ url_for('admin_analytics') }}" class="btn btn-secondary btn-sm">Clear</a>
+      {% endif %}
+    </form>
+
+    {% if student_q %}
+      {% if search_results %}
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Roll Number</th>
+                <th>Branch</th>
+                <th>Payment Status</th>
+                <th>Total Days Attended</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in search_results %}
+                <tr>
+                  <td><strong style="color: var(--primary);">{{ s.student_id }}</strong></td>
+                  <td>{{ s.full_name }}</td>
+                  <td>{{ s.roll_number }}</td>
+                  <td>{{ s.branch }}</td>
+                  <td>
+                    {% if s.payment_status == 'Paid' %}
+                      <span class="badge badge-paid">✅ Paid</span>
+                    {% elif s.payment_status == 'Pending' %}
+                      <span class="badge badge-normal">⏳ Pending</span>
+                    {% else %}
+                      <span class="badge badge-unpaid">❌ Unpaid</span>
+                    {% endif %}
+                  </td>
+                  <td><strong>{{ s.days_attended }}</strong> meals logged</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p style="color: var(--text-muted);">No student found matching "{{ student_q }}".</p>
+      {% endif %}
+    {% else %}
+      <p style="color: var(--text-muted);">Type a student ID (e.g. STU001) or name above to see their payment status and total attendance.</p>
+    {% endif %}
+  </div>
+</div>
+<!--
+==========================================
+STUDENT SEARCH CARD - END
+==========================================
+-->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const weeklyData = {{ weekly_data | tojson }};
+  const monthlyData = {{ monthly_data | tojson }};
+
+  // ---- Weekly grouped bar chart ----
+  const weeklyLabels = weeklyData.map(d => d.date);
+  const breakfastVals = weeklyData.map(d => d.meals.Breakfast.attended);
+  const lunchVals = weeklyData.map(d => d.meals.Lunch.attended);
+  const dinnerVals = weeklyData.map(d => d.meals.Dinner.attended);
+
+  new Chart(document.getElementById('weeklyChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: weeklyLabels,
+      datasets: [
+        { label: 'Breakfast', data: breakfastVals, backgroundColor: 'rgba(37, 99, 235, 0.65)' },
+        { label: 'Lunch', data: lunchVals, backgroundColor: 'rgba(16, 185, 129, 0.65)' },
+        { label: 'Dinner', data: dinnerVals, backgroundColor: 'rgba(126, 34, 206, 0.65)' }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'Students Attended' } } }
+    }
+  });
+
+  // ---- Monthly line chart ----
+  const monthlyLabels = monthlyData.map(d => d.date);
+  const monthlyTotals = monthlyData.map(d => d.total);
+
+  new Chart(document.getElementById('monthlyChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: monthlyLabels,
+      datasets: [
+        {
+          label: 'Total Attendance (all meals)',
+          data: monthlyTotals,
+          borderColor: 'rgba(37, 99, 235, 1)',
+          backgroundColor: 'rgba(37, 99, 235, 0.15)',
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+</script>
+{% endblock %}
